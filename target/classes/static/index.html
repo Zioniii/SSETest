@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSE Test</title>
+</head>
+<body>
+    <h1>SSE Test</h1>
+    <input type="text" id="messageInput" placeholder="Enter message">
+    <button onclick="sendMessage()">Send Message</button>
+    <div id="messages"></div>
+
+    <script>
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value;
+            
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Create EventSource connection
+            const eventSource = new EventSource('http://localhost:8081/stream');
+            
+            eventSource.addEventListener('message', function(event) {
+                console.log('Message: ', event.data);
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML += '<p>Message: ' + event.data + '</p>';
+            });
+            
+            eventSource.addEventListener('end', function(event) {
+                console.log('End: ', event.data);
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML += '<p>End: ' + event.data + '</p>';
+                eventSource.close();
+            });
+            
+            // Send message to server via POST
+            fetch('http://localhost:8081/stream', {
+                method: 'POST',
+                body: message,
+                headers: {
+                    'Content-Type': 'text/plain'
+                }
+            });
+        }
+    </script>
+</body>
+</html>
