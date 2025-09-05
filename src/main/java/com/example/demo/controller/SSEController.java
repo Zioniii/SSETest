@@ -14,8 +14,8 @@ public class SSEController {
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     @CrossOrigin(origins = "*")
-    @GetMapping("/stream")
-    public SseEmitter streamConnection() {
+    @PostMapping("/stream-with-post")
+    public SseEmitter streamConnectionWithPost(@RequestBody String data) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         String id = String.valueOf(System.currentTimeMillis());
         emitters.put(id, emitter);
@@ -25,13 +25,29 @@ public class SSEController {
         
         try {
             emitter.send(SseEmitter.event().name("connected").data("Connected"));
+            
+            // Start sending periodic messages
+            executorService.submit(() -> {
+                try {
+                    for (int i = 0; i < 10; i++) {
+                        String message = data + " - " + i;
+                        emitter.send(SseEmitter.event().name("message").data(message));
+                        Thread.sleep(1000);
+                    }
+                    
+                    emitter.send(SseEmitter.event().name("end").data("Stream ended"));
+                    emitter.complete();
+                } catch (IOException | InterruptedException e) {
+                    emitter.completeWithError(e);
+                }
+            });
         } catch (IOException e) {
             emitter.completeWithError(e);
         }
         
         return emitter;
     }
-
+    
     @CrossOrigin(origins = "*")
     @PostMapping("/stream")
     public String streamData(@RequestBody String data) {

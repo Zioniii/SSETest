@@ -6,11 +6,11 @@
 <body>
     <h1>SSE Test</h1>
     <input type="text" id="messageInput" placeholder="Enter message">
-    <button onclick="sendMessage()">Send Message</button>
+    <button onclick="sendMessageViaPost()">Send Message</button>
     <div id="messages"></div>
 
     <script>
-        function sendMessage() {
+        async function sendMessageViaPost() {
             const input = document.getElementById('messageInput');
             const message = input.value;
             
@@ -19,30 +19,36 @@
                 return;
             }
             
-            // Create EventSource connection
-            const eventSource = new EventSource('http://localhost:8081/stream');
-            
-            eventSource.addEventListener('message', function(event) {
-                console.log('Message: ', event.data);
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.innerHTML += '<p>Message: ' + event.data + '</p>';
-            });
-            
-            eventSource.addEventListener('end', function(event) {
-                console.log('End: ', event.data);
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.innerHTML += '<p>End: ' + event.data + '</p>';
-                eventSource.close();
-            });
-            
-            // Send message to server via POST
-            fetch('http://localhost:8081/stream', {
+            // Create SSE connection via POST
+            const response = await fetch('http://localhost:8081/stream-with-post', {
                 method: 'POST',
                 body: message,
                 headers: {
                     'Content-Type': 'text/plain'
                 }
             });
+            
+            // Process the stream response
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                console.log('Received chunk:', chunk);
+                
+                // Parse SSE events from the chunk
+                const lines = chunk.split('\n\n');
+                for (const line of lines) {
+                    if (line.startsWith('data:')) {
+                        const data = line.substring(5).trim();
+                        const messagesDiv = document.getElementById('messages');
+                        messagesDiv.innerHTML += '<p>Message: ' + data + '</p>';
+                    }
+                }
+            }
         }
     </script>
 </body>
